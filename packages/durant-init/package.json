@@ -1,0 +1,26 @@
+{
+  "name": "durant-init",
+  "version": "1.0.0",
+  "bin": {
+    "durant-init": "lib/durant-init-cli.js"
+  },
+  "type": "module",
+  "scripts": {
+  },
+  "files": [
+    "dist",
+    "lib"
+  ],
+  "buildOptions": {
+    "name": "DurantInit",
+    "formats": [
+      "esm-bundler",
+      "esm-browser",
+      "cjs",
+      "global"
+    ]
+  },
+  "dependencies": {
+    "@durant/durant-tool": "workspace:^"
+  }
+}

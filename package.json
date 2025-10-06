@@ -1,0 +1,21 @@
+{
+  "name": "durant-monorepo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:init": "node scripts/dev.js durant-init -f esm",
+    "dev:tool": "node scripts/dev.js durant-tool -f esm"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "type": "module",
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "esbuild": "^0.25.8",
+    "minimist": "^1.2.8",
+    "typescript": "^5.9.2"
+  }
+}
