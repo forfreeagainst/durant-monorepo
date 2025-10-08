@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev:init:all": "pnpm --recursive run dev:init && pnpm run dev:init",
     "dev:init": "node scripts/dev.js durant-init -f esm",
     "dev:tool": "node scripts/dev.js durant-tool -f esm"
   },
@@ -16,6 +17,7 @@
     "@changesets/cli": "^2.29.7",
     "esbuild": "^0.25.8",
     "minimist": "^1.2.8",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@types/node": "^22.12.0"
   }
 }

@@ -13,7 +13,7 @@
     "baseUrl": ".", // 和paths结合，做到包与包之间，可以更好地引用
     "paths": {
       "@durant/*": ["packages/*/src"]
-    }
+    },
   },
   "include": [
     "packages/*/src",

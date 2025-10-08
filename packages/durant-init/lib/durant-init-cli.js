@@ -187,16 +187,16 @@ var ansiStyles = assembleStyles();
 var ansi_styles_default = ansiStyles;
 
 // node_modules/.pnpm/chalk@5.6.2/node_modules/chalk/source/vendor/supports-color/index.js
-import process from "node:process";
+import process2 from "node:process";
 import os from "node:os";
 import tty from "node:tty";
-function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : process.argv) {
+function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : process2.argv) {
   const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
   const position = argv.indexOf(prefix + flag);
   const terminatorPosition = argv.indexOf("--");
   return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
 }
-var { env } = process;
+var { env } = process2;
 var flagForceColor;
 if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
   flagForceColor = 0;
@@ -252,7 +252,7 @@ function _supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
   if (env.TERM === "dumb") {
     return min;
   }
-  if (process.platform === "win32") {
+  if (process2.platform === "win32") {
     const osRelease = os.release().split(".");
     if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
       return Number(osRelease[2]) >= 14931 ? 3 : 2;
@@ -497,10 +497,14 @@ var source_default = chalk;
 
 // packages/durant-tool/src/print.ts
 var log = console.log;
+var theme = source_default.blue;
 var red = source_default.red.bold;
 var green = source_default.green;
 var yellow = source_default.yellow;
 var print_default = {
+  theme(text) {
+    log(theme(text));
+  },
   // 成功信息
   success(text) {
     log(green(text));
@@ -515,6 +519,228 @@ var print_default = {
   }
 };
 
+// packages/durant-tool/src/validPackageName.ts
+function toValidPackageName(projectName) {
+  return /^[a-z]+(-[a-z]+)?$/.test(projectName);
+}
+var validPackageName_default = toValidPackageName;
+
+// packages/durant-tool/src/deleteDir.ts
+import * as fs from "node:fs";
+function deleteDir(dir) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  fs.rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 3
+  });
+}
+var deleteDir_default = deleteDir;
+
+// packages/durant-tool/src/ejsRender.ts
+import ejs from "ejs";
+import * as fs2 from "node:fs";
+import * as path from "node:path";
+function preOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
+  for (const filename of fs2.readdirSync(dir)) {
+    if (filename === ".git") {
+      continue;
+    }
+    const fullpath = path.resolve(dir, filename);
+    if (fs2.lstatSync(fullpath).isDirectory()) {
+      dirCallback(fullpath);
+      if (fs2.existsSync(fullpath)) {
+        preOrderDirectoryTraverse(fullpath, dirCallback, fileCallback);
+      }
+      continue;
+    }
+    fileCallback(fullpath);
+  }
+}
+function ejsRender(root, dataStore = {}) {
+  preOrderDirectoryTraverse(
+    root,
+    () => {
+    },
+    (filepath) => {
+      if (filepath.endsWith(".ejs")) {
+        const template = fs2.readFileSync(filepath, "utf-8");
+        const dest = filepath.replace(/\.ejs$/, "");
+        const content = ejs.render(template, dataStore);
+        fs2.writeFileSync(dest, content);
+        fs2.unlinkSync(filepath);
+      }
+    }
+  );
+}
+var ejsRender_default = ejsRender;
+
 // packages/durant-init/src/cli.ts
-print_default.error("\u62A5\u9519");
+import { program } from "commander";
+
+// packages/durant-init/src/actions/init.ts
+import * as fs4 from "node:fs";
+import path3 from "path";
+import inquirer from "inquirer";
+
+// packages/durant-init/src/utils/constants.ts
+var TEMPLATE_TYPES = [
+  {
+    name: "React\u3001ReactNative",
+    value: "test-template"
+  },
+  {
+    name: "React",
+    value: "base-template"
+  }
+];
+var LINT_TYPES = [
+  {
+    name: "eslint",
+    value: "eslint"
+  },
+  {
+    name: "prettier",
+    value: "prettier"
+  },
+  {
+    name: "commitlint",
+    value: "commitlint"
+  },
+  {
+    name: "markdownlint",
+    value: "markdownlint"
+  },
+  {
+    name: "cspell",
+    value: "cspell"
+  },
+  {
+    name: "stylelint",
+    value: "stylelint"
+  }
+];
+
+// packages/durant-tool/src/initTemplate.ts
+import * as fs3 from "node:fs";
+import * as path2 from "node:path";
+function initTemplate(src, dest) {
+  const stats = fs3.statSync(src);
+  if (stats.isDirectory()) {
+    if (path2.basename(src) === "node_modules") {
+      return;
+    }
+    fs3.mkdirSync(dest, { recursive: true });
+    for (const file of fs3.readdirSync(src)) {
+      initTemplate(path2.resolve(src, file), path2.resolve(dest, file));
+    }
+    return;
+  }
+  fs3.copyFileSync(src, dest);
+}
+var initTemplate_default = initTemplate;
+
+// packages/durant-init/src/actions/init.ts
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+var cwd = process.cwd();
+var step = 0;
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = dirname(__filename);
+var inputProjectName = async () => {
+  const { projectName } = await inquirer.prompt({
+    type: "input",
+    name: "projectName",
+    message: `Step ${++step}. \u8BF7\u8F93\u5165\u9879\u76EE\u540D\u79F0`
+  });
+  return projectName;
+};
+var chooseTemplateType = async () => {
+  const { templateName } = await inquirer.prompt({
+    type: "list",
+    name: "templateName",
+    message: `Step ${++step}. \u8BF7\u9009\u62E9\u6A21\u677F\u540D\u79F0`,
+    choices: TEMPLATE_TYPES
+  });
+  return templateName;
+};
+var chooseLintTool = async () => {
+  const { lintRes } = await inquirer.prompt({
+    type: "checkbox",
+    name: "lintRes",
+    message: `Step ${++step}. \u8BF7\u9009\u62E9\u8981\u4F7F\u7528\u7684lint\u5DE5\u5177`,
+    choices: LINT_TYPES
+  });
+  return lintRes;
+};
+var confirmDelDir = async () => {
+  const { confirmDelete } = await inquirer.prompt({
+    type: "confirm",
+    name: "confirmDelete",
+    message: `Step ${++step}. \u5F53\u524D\u76EE\u5F55\u4E0D\u662F\u7A7A\u76EE\u5F55\uFF0C\u662F\u5426\u5220\u9664\u539F\u6709\u76EE\u5F55`,
+    default: false
+  });
+  return confirmDelete;
+};
+async function init() {
+  const config = {};
+  print_default.theme("\u521D\u59CB\u5316");
+  config.projectName = await inputProjectName();
+  if (!validPackageName_default(config.projectName)) {
+    print_default.error("\u9879\u76EE\u540D\u683C\u5F0F\u9519\u8BEF");
+    process.exit(0);
+  }
+  config.templateName = await chooseTemplateType();
+  config.lintArr = await chooseLintTool();
+  console.log("\u{1F680} ~ init ~ config:", config);
+  const projectName = config.projectName;
+  const pkg = { name: projectName, version: "0.0.0" };
+  const root = path3.join(cwd, projectName);
+  if (fs4.existsSync(root)) {
+    const confirmDelete = await confirmDelDir();
+    if (confirmDelete) {
+      deleteDir_default(path3.resolve(cwd, projectName));
+    } else {
+      print_default.warn("\u518D\u8003\u8651\u4E00\u4E0B\u662F\u5426\u5220\u9664\u539F\u6709\u76EE\u5F55");
+      process.exit(0);
+    }
+  }
+  if (!fs4.existsSync(root)) {
+    fs4.mkdirSync(root);
+  }
+  fs4.writeFileSync(path3.resolve(root, "package.json"), JSON.stringify(pkg, null, 2));
+  const templateRoot = path3.resolve(__dirname, "../dist/template");
+  const templateDir = path3.resolve(templateRoot, config.templateName);
+  initTemplate_default(templateDir, root);
+  ejsRender_default(root, {
+    query: 222
+  });
+  print_default.success("\u9879\u76EE\u521D\u59CB\u5316\u6210\u529F");
+}
+
+// packages/durant-init/src/actions/update.ts
+function update() {
+  console.log("\u66F4\u65B0");
+}
+
+// packages/durant-init/src/cli.ts
+program.command("init").description("\u4E00\u952E\u751F\u6210\uFF1A\u521D\u59CB\u5316\u9879\u76EE\u6A21\u677F").action(async () => {
+  await init();
+});
+program.command("update").description("\u4E00\u952E\u66F4\u65B0\uFF1A\u66F4\u65B0\u5230\u6700\u65B0\u7684\u914D\u7F6E").action(async () => {
+  await update();
+});
+program.command("help").description("\u5E2E\u52A9\uFF1A\u5E38\u7528\u547D\u4EE4\uFF0C\u5E2E\u52A9\u5FEB\u901F\u4E0A\u624B").action(async () => {
+  const helpInfo = `
+      durant-init init: template \u540D\u79F0 lint\u5DE5\u5177\u9009\u62E9\u914D\u7F6E
+      update: 
+      pre-commit: scan + fix
+      commit-message:
+      durant-init help: \u5E38\u7528\u547D\u4EE4
+    `;
+  print_default.theme(helpInfo);
+});
+program.parse(process.argv);
 //# sourceMappingURL=durant-init-cli.js.map

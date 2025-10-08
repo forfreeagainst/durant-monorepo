@@ -23,8 +23,6 @@ const entry = resolve(__dirname, `../packages/${target}/src/index.ts`);
 const pkg = require(`../packages/${target}/package.json`);
 // 根据需要进行打包
 
-console.log(resolve(__dirname, `../packages/${target}/dist/${target}.js`));
-
 const cliArr = ['durant-init'];
 if (cliArr.includes(target)) { // cli工具而已
   const entryCli = resolve(__dirname, `../packages/${target}/src/cli.ts`);
@@ -37,6 +35,7 @@ if (cliArr.includes(target)) { // cli工具而已
       sourcemap: true, // 可以调试源代码
       format, // cjs esm iife
       globalName: pkg.buildOptions?.name,
+      external: ["commander", "inquirer", "ejs"], // 将 commander 标记为外部依赖，重要：避免打包 commander
     })
     .then((ctx) => {
       console.log("cli工具 start dev");
@@ -48,10 +47,11 @@ if (cliArr.includes(target)) { // cli工具而已
     entryPoints: [entry], // 入口
     outfile: resolve(__dirname, `../packages/${target}/dist/${target}.js`), // 出口
     bundle: true, // reactivity -> shared  会打包到一起
-    platform: "browser", // 打包后给浏览器使用
+    platform: "node", // 这个项目以node环境为主，用于node工具包，
     sourcemap: true, // 可以调试源代码
     format, // cjs esm iife
     globalName: pkg.buildOptions?.name,
+    external: ["ejs"],
   })
   .then((ctx) => {
     console.log("非cli工具 start dev");

@@ -184,33 +184,137 @@ function assembleStyles() {
 var ansiStyles = assembleStyles();
 var ansi_styles_default = ansiStyles;
 
-// node_modules/.pnpm/chalk@5.6.2/node_modules/chalk/source/vendor/supports-color/browser.js
-var level = (() => {
-  if (!("navigator" in globalThis)) {
+// node_modules/.pnpm/chalk@5.6.2/node_modules/chalk/source/vendor/supports-color/index.js
+import process from "node:process";
+import os from "node:os";
+import tty from "node:tty";
+function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : process.argv) {
+  const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
+  const position = argv.indexOf(prefix + flag);
+  const terminatorPosition = argv.indexOf("--");
+  return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+}
+var { env } = process;
+var flagForceColor;
+if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
+  flagForceColor = 0;
+} else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
+  flagForceColor = 1;
+}
+function envForceColor() {
+  if ("FORCE_COLOR" in env) {
+    if (env.FORCE_COLOR === "true") {
+      return 1;
+    }
+    if (env.FORCE_COLOR === "false") {
+      return 0;
+    }
+    return env.FORCE_COLOR.length === 0 ? 1 : Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
+  }
+}
+function translateLevel(level) {
+  if (level === 0) {
+    return false;
+  }
+  return {
+    level,
+    hasBasic: true,
+    has256: level >= 2,
+    has16m: level >= 3
+  };
+}
+function _supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
+  const noFlagForceColor = envForceColor();
+  if (noFlagForceColor !== void 0) {
+    flagForceColor = noFlagForceColor;
+  }
+  const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
+  if (forceColor === 0) {
     return 0;
   }
-  if (globalThis.navigator.userAgentData) {
-    const brand = navigator.userAgentData.brands.find(({ brand: brand2 }) => brand2 === "Chromium");
-    if (brand && brand.version > 93) {
+  if (sniffFlags) {
+    if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
       return 3;
     }
+    if (hasFlag("color=256")) {
+      return 2;
+    }
   }
-  if (/\b(Chrome|Chromium)\//.test(globalThis.navigator.userAgent)) {
+  if ("TF_BUILD" in env && "AGENT_NAME" in env) {
     return 1;
   }
-  return 0;
-})();
-var colorSupport = level !== 0 && {
-  level,
-  hasBasic: true,
-  has256: level >= 2,
-  has16m: level >= 3
-};
+  if (haveStream && !streamIsTTY && forceColor === void 0) {
+    return 0;
+  }
+  const min = forceColor || 0;
+  if (env.TERM === "dumb") {
+    return min;
+  }
+  if (process.platform === "win32") {
+    const osRelease = os.release().split(".");
+    if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
+      return Number(osRelease[2]) >= 14931 ? 3 : 2;
+    }
+    return 1;
+  }
+  if ("CI" in env) {
+    if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key) => key in env)) {
+      return 3;
+    }
+    if (["TRAVIS", "APPVEYOR", "GITLAB_CI", "BUILDKITE", "DRONE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
+      return 1;
+    }
+    return min;
+  }
+  if ("TEAMCITY_VERSION" in env) {
+    return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+  }
+  if (env.COLORTERM === "truecolor") {
+    return 3;
+  }
+  if (env.TERM === "xterm-kitty") {
+    return 3;
+  }
+  if (env.TERM === "xterm-ghostty") {
+    return 3;
+  }
+  if (env.TERM === "wezterm") {
+    return 3;
+  }
+  if ("TERM_PROGRAM" in env) {
+    const version = Number.parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+    switch (env.TERM_PROGRAM) {
+      case "iTerm.app": {
+        return version >= 3 ? 3 : 2;
+      }
+      case "Apple_Terminal": {
+        return 2;
+      }
+    }
+  }
+  if (/-256(color)?$/i.test(env.TERM)) {
+    return 2;
+  }
+  if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
+    return 1;
+  }
+  if ("COLORTERM" in env) {
+    return 1;
+  }
+  return min;
+}
+function createSupportsColor(stream, options = {}) {
+  const level = _supportsColor(stream, {
+    streamIsTTY: stream && stream.isTTY,
+    ...options
+  });
+  return translateLevel(level);
+}
 var supportsColor = {
-  stdout: colorSupport,
-  stderr: colorSupport
+  stdout: createSupportsColor({ isTTY: tty.isatty(1) }),
+  stderr: createSupportsColor({ isTTY: tty.isatty(2) })
 };
-var browser_default = supportsColor;
+var supports_color_default = supportsColor;
 
 // node_modules/.pnpm/chalk@5.6.2/node_modules/chalk/source/utilities.js
 function stringReplaceAll(string, substring, replacer) {
@@ -243,7 +347,7 @@ function stringEncaseCRLFWithFirstIndex(string, prefix, postfix, index) {
 }
 
 // node_modules/.pnpm/chalk@5.6.2/node_modules/chalk/source/index.js
-var { stdout: stdoutColor, stderr: stderrColor } = browser_default;
+var { stdout: stdoutColor, stderr: stderrColor } = supports_color_default;
 var GENERATOR = Symbol("GENERATOR");
 var STYLER = Symbol("STYLER");
 var IS_EMPTY = Symbol("IS_EMPTY");
@@ -287,18 +391,18 @@ styles2.visible = {
     return builder;
   }
 };
-var getModelAnsi = (model, level2, type, ...arguments_) => {
+var getModelAnsi = (model, level, type, ...arguments_) => {
   if (model === "rgb") {
-    if (level2 === "ansi16m") {
+    if (level === "ansi16m") {
       return ansi_styles_default[type].ansi16m(...arguments_);
     }
-    if (level2 === "ansi256") {
+    if (level === "ansi256") {
       return ansi_styles_default[type].ansi256(ansi_styles_default.rgbToAnsi256(...arguments_));
     }
     return ansi_styles_default[type].ansi(ansi_styles_default.rgbToAnsi(...arguments_));
   }
   if (model === "hex") {
-    return getModelAnsi("rgb", level2, type, ...ansi_styles_default.hexToRgb(...arguments_));
+    return getModelAnsi("rgb", level, type, ...ansi_styles_default.hexToRgb(...arguments_));
   }
   return ansi_styles_default[type][model](...arguments_);
 };
@@ -306,9 +410,9 @@ var usedModels = ["rgb", "hex", "ansi256"];
 for (const model of usedModels) {
   styles2[model] = {
     get() {
-      const { level: level2 } = this;
+      const { level } = this;
       return function(...arguments_) {
-        const styler = createStyler(getModelAnsi(model, levelMapping[level2], "color", ...arguments_), ansi_styles_default.color.close, this[STYLER]);
+        const styler = createStyler(getModelAnsi(model, levelMapping[level], "color", ...arguments_), ansi_styles_default.color.close, this[STYLER]);
         return createBuilder(this, styler, this[IS_EMPTY]);
       };
     }
@@ -316,9 +420,9 @@ for (const model of usedModels) {
   const bgModel = "bg" + model[0].toUpperCase() + model.slice(1);
   styles2[bgModel] = {
     get() {
-      const { level: level2 } = this;
+      const { level } = this;
       return function(...arguments_) {
-        const styler = createStyler(getModelAnsi(model, levelMapping[level2], "bgColor", ...arguments_), ansi_styles_default.bgColor.close, this[STYLER]);
+        const styler = createStyler(getModelAnsi(model, levelMapping[level], "bgColor", ...arguments_), ansi_styles_default.bgColor.close, this[STYLER]);
         return createBuilder(this, styler, this[IS_EMPTY]);
       };
     }
@@ -332,8 +436,8 @@ var proto = Object.defineProperties(() => {
     get() {
       return this[GENERATOR].level;
     },
-    set(level2) {
-      this[GENERATOR].level = level2;
+    set(level) {
+      this[GENERATOR].level = level;
     }
   }
 });
@@ -391,10 +495,14 @@ var source_default = chalk;
 
 // packages/durant-tool/src/print.ts
 var log = console.log;
+var theme = source_default.blue;
 var red = source_default.red.bold;
 var green = source_default.green;
 var yellow = source_default.yellow;
 var print_default = {
+  theme(text) {
+    log(theme(text));
+  },
   // 成功信息
   success(text) {
     log(green(text));
@@ -408,7 +516,87 @@ var print_default = {
     log(red(text));
   }
 };
+
+// packages/durant-tool/src/validPackageName.ts
+function toValidPackageName(projectName) {
+  return /^[a-z]+(-[a-z]+)?$/.test(projectName);
+}
+var validPackageName_default = toValidPackageName;
+
+// packages/durant-tool/src/deleteDir.ts
+import * as fs2 from "node:fs";
+
+// packages/durant-tool/src/directoryTraverse.ts
+import * as fs from "node:fs";
+import * as path from "node:path";
+function preOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
+  for (const filename of fs.readdirSync(dir)) {
+    if (filename === ".git") {
+      continue;
+    }
+    const fullpath = path.resolve(dir, filename);
+    if (fs.lstatSync(fullpath).isDirectory()) {
+      dirCallback(fullpath);
+      if (fs.existsSync(fullpath)) {
+        preOrderDirectoryTraverse(fullpath, dirCallback, fileCallback);
+      }
+      continue;
+    }
+    fileCallback(fullpath);
+  }
+}
+function postOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
+  for (const filename of fs.readdirSync(dir)) {
+    if (filename === ".git") {
+      continue;
+    }
+    const fullpath = path.resolve(dir, filename);
+    if (fs.lstatSync(fullpath).isDirectory()) {
+      postOrderDirectoryTraverse(fullpath, dirCallback, fileCallback);
+      dirCallback(fullpath);
+      continue;
+    }
+    fileCallback(fullpath);
+  }
+}
+
+// packages/durant-tool/src/deleteDir.ts
+function deleteDir(dir) {
+  if (!fs2.existsSync(dir)) {
+    return;
+  }
+  postOrderDirectoryTraverse(
+    dir,
+    (dir2) => fs2.rmdirSync(dir2),
+    (file) => fs2.unlinkSync(file)
+  );
+}
+var deleteDir_default = deleteDir;
+
+// packages/durant-tool/src/ejsRender.ts
+import ejs from "ejs";
+import * as fs3 from "node:fs";
+function ejsRender(root, dataStore = {}) {
+  preOrderDirectoryTraverse(
+    root,
+    () => {
+    },
+    (filepath) => {
+      if (filepath.endsWith(".ejs")) {
+        const template = fs3.readFileSync(filepath, "utf-8");
+        const dest = filepath.replace(/\.ejs$/, "");
+        const content = ejs.render(template, dataStore);
+        fs3.writeFileSync(dest, content);
+        fs3.unlinkSync(filepath);
+      }
+    }
+  );
+}
+var ejsRender_default = ejsRender;
 export {
-  print_default as print
+  deleteDir_default as deleteDir,
+  ejsRender_default as ejsRender,
+  print_default as print,
+  validPackageName_default as validPackageName
 };
 //# sourceMappingURL=durant-tool.js.map
